@@ -374,8 +374,18 @@ function renderTabla() {
   document.getElementById("tabla-pos").innerHTML = html;
 }
 
-// INIT — carga desde Firebase y renderiza
-cargarDesdeFirebase();
+// INIT — espera a que Firebase esté listo y luego carga
+window.addEventListener("load", function() {
+  firebase.initializeApp({
+    apiKey:        "AIzaSyAJOLlIHvsTeeLkBBCs3xIaSp2hNP19k1o",
+    databaseURL:   "https://prode-boscoso-default-rtdb.firebaseio.com",
+    projectId:     "prode-boscoso",
+    authDomain:    "prode-boscoso.firebaseapp.com",
+    storageBucket: "prode-boscoso.appspot.com"
+  });
+  db = firebase.database();
+  cargarDesdeFirebase();
+});
 </script>
 </body>
 </html>
