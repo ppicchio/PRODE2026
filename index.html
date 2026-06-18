@@ -6,6 +6,7 @@
 <title>PRODE Mundial 2026</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; font-size: 11px; background: #f0f4f8; color: #222; }
@@ -28,6 +29,11 @@ td { border: 1px solid #ccc; padding: 3px 6px; white-space: nowrap; }
 .res-input.err { background: #f8d7da; border-color: #dc3545; }
 .eq-input { width: 130px; border: 1px solid #aaa; border-radius: 4px; padding: 2px 5px; font-size: 11px; background: #fffbe6; font-family: Arial, sans-serif; }
 .eq-input:focus { border-color: #f5c518; outline: none; background: #fff; }
+.pron-select { width: 48px; border: 1px solid #aaa; border-radius: 3px; padding: 1px; text-align: center; font-size: 10px; font-weight: bold; background: #fff; }
+.pron-select.psL { background: #d4edda; border-color: #28a745; color: #155724; }
+.pron-select.psE { background: #fff3cd; border-color: #f5c518; color: #856404; }
+.pron-select.psV { background: #f8d7da; border-color: #dc3545; color: #721c24; }
+.pts-mini { font-size: 8px; display: block; }
 .pt1 { background: #28a745; color: #fff; text-align: center; font-weight: bold; border-radius: 3px; }
 .pt0 { background: #dc3545; color: #fff; text-align: center; font-weight: bold; border-radius: 3px; }
 .pt-vacio { color: #bbb; text-align: center; }
@@ -39,6 +45,12 @@ td { border: 1px solid #ccc; padding: 3px 6px; white-space: nowrap; }
 .pos-2 { background: #f5f5f5; }
 .pos-3 { background: #fdf0e0; }
 .pts-badge { background: #1a3a6a; color: #f5c518; padding: 2px 10px; border-radius: 12px; font-weight: bold; font-size: 13px; }
+.club-tag { color: #888; font-size: 10px; font-weight: normal; }
+#chart-container { background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 14px; margin-top: 16px; max-width: 900px; position: relative; height: 420px; }
+#chart-evolucion { width: 100% !important; height: 380px !important; }
+.jugador-bar { background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.jugador-bar label { font-weight: bold; font-size: 12px; }
+.jugador-bar select { font-size: 13px; padding: 4px 8px; border-radius: 4px; border: 1px solid #aaa; }
 #ind-firebase { font-size: 12px; font-weight: normal; margin-left: 20px; letter-spacing: 0; }
 </style>
 </head>
@@ -46,16 +58,26 @@ td { border: 1px solid #ccc; padding: 3px 6px; white-space: nowrap; }
 <h1>PRODE MUNDIAL 2026 - USA CANADA MEXICO <span id="ind-firebase">Conectando...</span></h1>
 <div class="container">
 <div class="info">
-  Resultados fase de grupos: escribi el marcador en formato 2-1 y presiona Enter o clic en otro lado. La tabla se actualiza sola.
-  Eliminatorias: los equipos son editables. El resultado es el de 90 minutos + suplementario sin penales (puede quedar empate).
+  Resultados fase de grupos: escribi el marcador en formato 2-1 y presiona Enter o clic en otro lado. La tabla se actualiza sola.<br>
+  Eliminatorias: los equipos son editables. El resultado es el de 90 minutos + suplementario sin penales (puede quedar empate). Cada jugador carga su pronostico L/E/V en su propia columna.
 </div>
+
 <div id="fixture-container">Cargando datos...</div>
 <h2>TABLA DE POSICIONES</h2>
 <div id="tabla-pos"></div>
+<h2>EVOLUCION DE PUNTOS</h2>
+<div id="chart-container"><canvas id="chart-evolucion"></canvas></div>
 </div>
 
 <script>
 var JUGADORES = ["Angel","Augusto","Carolina","Constanza","Gabriela","Guillermina","Ivan","Lila","Liliana","Lucia","Magali","Mariano","Matias","Pablo","Ricardo","Silvio"];
+
+var CLUBES = {
+  "Angel":"River Plate","Augusto":"Racing","Carolina":"San Lorenzo","Constanza":"San Lorenzo",
+  "Gabriela":"River Plate","Guillermina":"Boca Jrs.","Ivan":"River Plate","Lila":"River Plate",
+  "Liliana":"Huracan","Lucia":"San Lorenzo","Magali":"River Plate","Mariano":"San Martin SJ",
+  "Matias":"San Lorenzo","Pablo":"River Plate","Ricardo":"Boca Jrs.","Silvio":"River Plate"
+};
 
 var PARTIDOS = [
   {cod:"A1",  grupo:"A", fecha:"jue 11/06 16:00", sede:"Azteca Mexico",      local:"Mexico",         vis:"Sudafrica",       prons:["L","L","E","L","L","L","L","L","E","L","L","E","L","L","L","L"]},
@@ -119,7 +141,7 @@ var PARTIDOS = [
   {cod:"J5",  grupo:"J", fecha:"sab 27/06 23:00", sede:"Dallas",             local:"Jordania",       vis:"Argentina",       prons:["V","V","V","V","V","V","V","V","V","V","V","V","V","V","V","V"]},
   {cod:"J6",  grupo:"J", fecha:"sab 27/06 23:00", sede:"Kansas City",        local:"Argelia",        vis:"Austria",         prons:["V","V","E","V","V","E","E","E","V","V","V","E","L","V","V","E"]},
   {cod:"K1",  grupo:"K", fecha:"mie 17/06 13:00", sede:"Houston",            local:"Portugal",       vis:"Rep. D. Congo",   prons:["L","L","L","L","L","L","L","L","L","L","L","E","L","L","L","L"]},
-  {cod:"K2",  grupo:"K", fecha:"mie 17/06 23:00", sede:"Cd. Mexico",         local:"Uzbekistan",     vis:"Colombia",        prons:["V","V","V","V","V","V","V","V","V","V","V","E","V","V","V","V"]},
+  {cod:"K2",  grupo:"K", fecha:"mie 17/06 23:00", sede:"Cd. Mexico",         local:"Uzbekistan",     vis:"Colombia",        prons:["V","V","V","V","V","V","L","V","V","V","V","E","V","V","V","V"]},
   {cod:"K3",  grupo:"K", fecha:"mar 23/06 14:00", sede:"Houston",            local:"Portugal",       vis:"Uzbekistan",      prons:["L","L","L","L","E","L","L","L","L","L","L","L","L","L","L","L"]},
   {cod:"K4",  grupo:"K", fecha:"mar 23/06 23:00", sede:"Guadalajara",        local:"Colombia",       vis:"Rep. D. Congo",   prons:["L","L","L","L","E","L","L","L","L","L","L","L","L","L","L","L"]},
   {cod:"K5",  grupo:"K", fecha:"sab 27/06 20:30", sede:"Miami",              local:"Colombia",       vis:"Portugal",        prons:["E","E","E","V","E","V","V","L","V","E","E","E","E","E","E","V"]},
@@ -166,6 +188,8 @@ var PARTIDOS = [
 
 var resultados  = {};
 var equiposElim = {};
+// Pronosticos eliminatorias: { cod: { jugador: "L"/"E"/"V" } }
+var pronsElim   = {};
 var db          = null;
 var guardando   = false;
 
@@ -180,7 +204,8 @@ function guardar() {
   if (!db) return;
   guardando = true; updInd();
   db.ref("prode2026excel/resultados").set(resultados);
-  db.ref("prode2026excel/equipos").set(equiposElim, function() {
+  db.ref("prode2026excel/equipos").set(equiposElim);
+  db.ref("prode2026excel/pronsElim").set(pronsElim, function() {
     guardando = false; updInd();
   });
 }
@@ -201,25 +226,135 @@ function calcPts(signo, pron) {
 function getLocalNom(p) { return (equiposElim[p.cod] && equiposElim[p.cod].local) ? equiposElim[p.cod].local : p.local; }
 function getVisNom(p)   { return (equiposElim[p.cod] && equiposElim[p.cod].vis)   ? equiposElim[p.cod].vis   : p.vis;   }
 
+function getPronElim(cod, jugador) {
+  return (pronsElim[cod] && pronsElim[cod][jugador]) ? pronsElim[cod][jugador] : "";
+}
+
 function getTabla() {
-  return JUGADORES.map(function(j, ji) {
+  return JUGADORES.map(function(j) {
     var pts=0, ac=0, jug=0;
     PARTIDOS.forEach(function(p) {
-      if (!p.prons) return;
       var r = parseRes(resultados[p.cod]);
       if (!r) return;
+      var pron;
+      if (p.prons) {
+        var ji = JUGADORES.indexOf(j);
+        pron = p.prons[ji];
+      } else {
+        pron = getPronElim(p.cod, j);
+      }
+      if (!pron) return;
       jug++;
-      var pu = calcPts(r.signo, p.prons[ji]);
+      var pu = calcPts(r.signo, pron);
       pts += pu; if (pu===1) ac++;
     });
     return {jugador:j, pts:pts, aciertos:ac, jugados:jug};
   }).sort(function(a,b){ return b.pts-a.pts || b.aciertos-a.aciertos; });
 }
 
+// Devuelve, para cada partido CON resultado cargado (en el orden definido en PARTIDOS),
+// el puntaje acumulado de cada jugador hasta ese punto.
+function getEvolucion() {
+  var jugados = PARTIDOS.filter(function(p) { return parseRes(resultados[p.cod]); });
+  var acumulado = {};
+  JUGADORES.forEach(function(j){ acumulado[j] = 0; });
+  var labels = [];
+  var series = {};
+  JUGADORES.forEach(function(j){ series[j] = []; });
+
+  jugados.forEach(function(p) {
+    var r = parseRes(resultados[p.cod]);
+    labels.push(p.cod);
+    JUGADORES.forEach(function(j) {
+      var pron;
+      if (p.prons) {
+        pron = p.prons[JUGADORES.indexOf(j)];
+      } else {
+        pron = getPronElim(p.cod, j);
+      }
+      var pu = pron ? (calcPts(r.signo, pron) || 0) : 0;
+      acumulado[j] += pu;
+      series[j].push(acumulado[j]);
+    });
+  });
+
+  return { labels: labels, series: series };
+}
+
+var COLORES = [
+  "#e6194b","#3cb44b","#4363d8","#f58231","#911eb4","#46f0f0","#f032e6","#bcf60c",
+  "#fabebe","#008080","#e6beff","#9a6324","#800000","#aaffc3","#808000","#000075"
+];
+
+var chartInstance = null;
+function renderChart() {
+  if (typeof Chart === "undefined") {
+    // Chart.js todavia no cargo, reintentar en 300ms
+    setTimeout(renderChart, 300);
+    return;
+  }
+  var ev = getEvolucion();
+  var ctx = document.getElementById("chart-evolucion");
+  if (!ctx) return;
+
+  if (!ev.labels.length) {
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    var c2d = ctx.getContext("2d");
+    c2d.clearRect(0,0,ctx.width,ctx.height);
+    c2d.font = "13px Arial";
+    c2d.fillStyle = "#999";
+    c2d.fillText("Todavia no hay partidos con resultado cargado.", 10, 30);
+    return;
+  }
+
+  var datasets = JUGADORES.map(function(j, i) {
+    return {
+      label: j,
+      data: ev.series[j],
+      borderColor: COLORES[i % COLORES.length],
+      backgroundColor: COLORES[i % COLORES.length],
+      borderWidth: 2,
+      pointRadius: 2,
+      tension: 0.15,
+      fill: false
+    };
+  });
+
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: "line",
+    data: { labels: ev.labels, datasets: datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 10 } } },
+        tooltip: { mode: "index", intersect: false }
+      },
+      scales: {
+        x: { title: { display: true, text: "Partido (codigo)" }, ticks: { font: { size: 9 } } },
+        y: { title: { display: true, text: "Puntos acumulados" }, beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+
 function thJug() {
   var h = "";
   JUGADORES.forEach(function(j){ h += "<th>"+j+"</th>"; });
   return h;
+}
+
+function selPronHtml(cod, jugador) {
+  var actual = getPronElim(cod, jugador);
+  var opts = ["", "L", "E", "V"].map(function(v) {
+    var label = v === "" ? "-" : v;
+    var sel = v === actual ? " selected" : "";
+    return "<option value='"+v+"'"+sel+">"+label+"</option>";
+  }).join("");
+  var cls = "pron-select" + (actual === "L" ? " psL" : actual === "E" ? " psE" : actual === "V" ? " psV" : "");
+  return "<select class='"+cls+"' data-cod='"+cod+"' data-jugador='"+jugador+"' data-elimpron='1'>"+opts+"</select>";
 }
 
 function renderFila(p, conProns) {
@@ -253,6 +388,13 @@ function renderFila(p, conProns) {
       var ptxt   = pts!==null ? " <b>("+pts+")</b>" : "";
       h += "<td class='"+pron+pcls+"'>"+pron+ptxt+"</td>";
     });
+  } else if (esElim) {
+    JUGADORES.forEach(function(j) {
+      var pron = getPronElim(p.cod, j);
+      var pts  = r ? calcPts(r.signo, pron) : null;
+      var ptxt = pts!==null ? "<span class='pts-mini'>("+pts+"pt)</span>" : "";
+      h += "<td style='text-align:center'>"+selPronHtml(p.cod, j)+ptxt+"</td>";
+    });
   }
   return h + "</tr>";
 }
@@ -282,7 +424,7 @@ function renderFixture() {
     var ps = PARTIDOS.filter(function(p){ return p.fase===f.key; });
     if (!ps.length) return;
     html += "<h2>"+f.label+" - resultado 90+supl sin penales (empate valido)</h2>";
-    html += "<table><thead><tr><th>Fecha</th><th>Sede</th><th>Cod</th><th>Local (editable)</th><th>Result.</th><th>Visitante (editable)</th></tr></thead><tbody>";
+    html += "<table><thead><tr><th>Fecha</th><th>Sede</th><th>Cod</th><th>Local (editable)</th><th>Result.</th><th>Visitante (editable)</th>"+thJug()+"</tr></thead><tbody>";
     ps.forEach(function(p){ html += renderFila(p, false); });
     html += "</tbody></table>";
   });
@@ -308,8 +450,9 @@ function bindEvents() {
         return;
       }
       guardar();
-      actualizarCeldas();
+      renderFixture();
       renderTabla();
+      renderChart();
     };
   });
 
@@ -322,44 +465,35 @@ function bindEvents() {
       guardar();
     };
   });
-}
 
-function actualizarCeldas() {
-  PARTIDOS.forEach(function(p) {
-    if (!p.prons) return;
-    var r = parseRes(resultados[p.cod]);
-    var inputs = document.querySelectorAll("input.res-input[data-cod='"+p.cod+"']");
-    if (!inputs.length) return;
-    var fila = inputs[0].closest("tr");
-    if (!fila) return;
-    var celdas = fila.querySelectorAll("td");
-    JUGADORES.forEach(function(j, ji) {
-      var pron  = p.prons[ji];
-      var pts   = r ? calcPts(r.signo, pron) : null;
-      var pcls  = pts===1 ? " pt1" : pts===0 ? " pt0" : " pt-vacio";
-      var celda = celdas[6 + ji];
-      if (!celda) return;
-      celda.className = pron + pcls;
-      celda.innerHTML = pron + (pts!==null ? " <b>("+pts+")</b>" : "");
-    });
+  document.querySelectorAll("select[data-elimpron]").forEach(function(sel) {
+    sel.onchange = function() {
+      var cod = this.getAttribute("data-cod");
+      var jug = this.getAttribute("data-jugador");
+      if (!pronsElim[cod]) pronsElim[cod] = {};
+      pronsElim[cod][jug] = this.value;
+      guardar();
+      renderFixture();
+      renderTabla();
+      renderChart();
+    };
   });
 }
 
 function renderTabla() {
   var tabla = getTabla();
-  var html  = "<table><thead><tr><th>#</th><th>Jugador</th><th>Partidos</th><th>Aciertos</th><th>Puntos</th></tr></thead><tbody>";
+  var html  = "<table><thead><tr><th>#</th><th>Jugador</th><th>Partidos</th><th>Puntos</th></tr></thead><tbody>";
   tabla.forEach(function(row, i) {
     var cls = i===0?"pos-1": i===1?"pos-2": i===2?"pos-3":"";
     var med = i===0?"1":i===1?"2":i===2?"3":(i+1);
     html += "<tr class='"+cls+"'>";
     html += "<td style='text-align:center;font-weight:bold'>"+med+"</td>";
-    html += "<td><b>"+row.jugador+"</b></td>";
+    html += "<td><b>"+row.jugador+"</b> <span class='club-tag'>("+(CLUBES[row.jugador] || "-")+")</span></td>";
     html += "<td style='text-align:center;color:#555'>"+row.jugados+"</td>";
-    html += "<td style='text-align:center;color:#28a745'>"+row.aciertos+"</td>";
     html += "<td style='text-align:center'><span class='pts-badge'>"+row.pts+"</span></td>";
     html += "</tr>";
   });
-  html += "</tbody></table><p style='color:#888;font-size:11px;margin-top:8px'>Puntaje calculado sobre partidos con resultado cargado.</p>";
+  html += "</tbody></table><p style='color:#888;font-size:11px;margin-top:8px'>Puntaje calculado sobre partidos con resultado cargado (grupos + eliminatorias).</p>";
   document.getElementById("tabla-pos").innerHTML = html;
 }
 
@@ -379,15 +513,18 @@ window.onload = function() {
       if (data) {
         if (data.resultados) resultados  = data.resultados;
         if (data.equipos)    equiposElim = data.equipos;
+        if (data.pronsElim)  pronsElim   = data.pronsElim;
       }
       renderFixture();
       renderTabla();
+      renderChart();
       updInd();
     });
   } catch(e) {
     console.error("Firebase error:", e);
     renderFixture();
     renderTabla();
+    renderChart();
   }
 };
 </script>
