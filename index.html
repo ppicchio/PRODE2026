@@ -380,7 +380,7 @@ function renderFila(p, conProns) {
   var h = "<tr><td class='td-fecha'>"+p.fecha+"</td><td class='td-sede'>"+p.sede+"</td><td class='cod'>"+p.cod+"</td>";
   h += lcell + rcell + vcell;
 
-  if (conProns && p.prons) {
+  if (p.prons) {
     JUGADORES.forEach(function(j, ji) {
       var pron   = p.prons[ji];
       var pts    = r ? calcPts(r.signo, pron) : null;
@@ -423,8 +423,11 @@ function renderFixture() {
   fases.forEach(function(f) {
     var ps = PARTIDOS.filter(function(p){ return p.fase===f.key; });
     if (!ps.length) return;
+    var tieneProns = ps.some(function(p){ return p.prons; });
     html += "<h2>"+f.label+" - resultado 90+supl sin penales (empate valido)</h2>";
-    html += "<table><thead><tr><th>Fecha</th><th>Sede</th><th>Cod</th><th>Local (editable)</th><th>Result.</th><th>Visitante (editable)</th>"+thJug()+"</tr></thead><tbody>";
+    html += "<table><thead><tr><th>Fecha</th><th>Sede</th><th>Cod</th><th>Local (editable)</th><th>Result.</th><th>Visitante (editable)</th>";
+    html += tieneProns ? thJug() : thJug();
+    html += "</tr></thead><tbody>";
     ps.forEach(function(p){ html += renderFila(p, false); });
     html += "</tbody></table>";
   });
